@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoopGoopDroopTroop</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0a12;
+            color: #e0e0e0;
+            font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #0a0a12;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.6s;
+        }
+        #loading-screen.hidden { opacity: 0; pointer-events: none; }
+
+        .loading-goop {
+            color: #4ade80;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: pre;
+            text-align: center;
+            animation: goopPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes goopPulse {
+            0%, 100% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+
+        .loading-text {
+            margin-top: 24px;
+            color: #4ade80;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4) infinite;
+        }
+
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+
+        .loading-sub {
+            margin-top: 8px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        #terminal-wrapper {
+            flex: 1;
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px 0 6px;
+            border-bottom: 1px solid #1a3a1a;
+            margin-bottom: 4px;
+        }
+
+        .header h1 {
+            font-size: 14px;
+            color: #4ade80;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        #terminal-container {
+            flex: 1;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #1a3a1a;
+            background: #0d1117;
+        }
+
+        #terminal-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 255, 0, 0.008) 2px,
+                rgba(0, 255, 0, 0.008) 4px
+            );
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 6px 0;
+            color: #333;
+            font-size: 11px;
+        }
+
+        .footer a {
+            color: #4ade80;
+            text-decoration: none;
+        }
+
+        .xterm { height: 100%; }
+        .xterm-viewport { overflow-y: auto !important; }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loading-goop">
+    .~~~~~.
+   / o   o \
+  |    ▽    |
+  |  \___/  |
+   \  ~~~  /
+    '~.___.~'
+     /|   |\
+        </div>
+        <div class="loading-text">
+            <span>Loading the goop</span><span class="loading-dots"></span>
+        </div>
+        <div class="loading-sub" id="loading-status">Downloading Pyodide runtime (~10MB)</div>
+    </div>
+
+    <div id="terminal-wrapper">
+        <div class="header">
+            <h1>GoopGoopDroopTroop</h1>
+        </div>
+        <div id="terminal-container"></div>
+        <div class="footer">
+            Powered by <a href="https://pyodide.org" target="_blank">Pyodide</a> +
+            <a href="https://xtermjs.org" target="_blank">xterm.js</a>
+            &nbsp;|&nbsp;
+            <a href="https://github.com/matt-wai/goopgoopdrooptroop" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <script>
+    (async function() {
+        const term = new Terminal({
+            theme: {
+                background: '#0d1117',
+                foreground: '#c9d1d9',
+                cursor: '#4ade80',
+                cursorAccent: '#0d1117',
+                selectionBackground: 'rgba(74, 222, 128, 0.3)',
+                black: '#0d1117',
+                red: '#f85149',
+                green: '#4ade80',
+                yellow: '#e3b341',
+                blue: '#58a6ff',
+                magenta: '#bc8cff',
+                cyan: '#39d2c0',
+                white: '#c9d1d9',
+                brightBlack: '#484f58',
+                brightRed: '#ff7b72',
+                brightGreen: '#56d364',
+                brightYellow: '#e3b341',
+                brightBlue: '#79c0ff',
+                brightMagenta: '#d2a8ff',
+                brightCyan: '#56d4dd',
+                brightWhite: '#f0f6fc',
+            },
+            fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", "Menlo", monospace',
+            fontSize: 14,
+            lineHeight: 1.2,
+            cursorBlink: true,
+            cursorStyle: 'block',
+            allowTransparency: true,
+            scrollback: 5000,
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+        const container = document.getElementById('terminal-container');
+        term.open(container);
+        fitAddon.fit();
+        window.addEventListener('resize', () => fitAddon.fit());
+
+        new ResizeObserver(() => fitAddon.fit()).observe(container);
+
+        function writeOutput(text) {
+            const lines = text.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                term.write(lines[i]);
+                if (i < lines.length - 1) term.write('\r\n');
+            }
+        }
+
+        let inputBuffer = '';
+        let inputResolve = null;
+        let inputActive = false;
+
+        function getLine() {
+            inputActive = true;
+            inputBuffer = '';
+            return new Promise(resolve => { inputResolve = resolve; });
+        }
+
+        term.onData(data => {
+            if (!inputActive) return;
+
+            for (const ch of data) {
+                if (ch === '\r' || ch === '\n') {
+                    term.write('\r\n');
+                    inputActive = false;
+                    const line = inputBuffer;
+                    inputBuffer = '';
+                    if (inputResolve) {
+                        const r = inputResolve;
+                        inputResolve = null;
+                        r(line);
+                    }
+                } else if (ch === '\x7f' || ch === '\b') {
+                    if (inputBuffer.length > 0) {
+                        inputBuffer = inputBuffer.slice(0, -1);
+                        term.write('\b \b');
+                    }
+                } else if (ch === '\x03') {
+                    // Ctrl+C: clear input
+                    while (inputBuffer.length > 0) {
+                        inputBuffer = inputBuffer.slice(0, -1);
+                        term.write('\b \b');
+                    }
+                } else if (ch === '\x15') {
+                    // Ctrl+U: clear line
+                    while (inputBuffer.length > 0) {
+                        inputBuffer = inputBuffer.slice(0, -1);
+                        term.write('\b \b');
+                    }
+                } else if (ch >= ' ') {
+                    inputBuffer += ch;
+                    term.write(ch);
+                }
+            }
+        });
+
+        // Paste support
+        term.onData(data => {
+            if (!inputActive) return;
+            if (data.length > 1 && !data.includes('\x1b')) {
+                // Multi-char paste that isn't an escape sequence is already handled char-by-char above
+            }
+        });
+
+        const status = document.getElementById('loading-status');
+
+        status.textContent = 'Downloading Pyodide runtime (~10MB)';
+        const pyodide = await loadPyodide();
+
+        status.textContent = 'Loading game files...';
+
+        const pyFiles = ['art.py', 'goop.py', 'missions.py', 'web_game.py'];
+        const baseUrl = window.location.href.replace(/\/[^/]*$/, '/');
+
+        for (const fname of pyFiles) {
+            const resp = await fetch(baseUrl + fname);
+            const code = await resp.text();
+            pyodide.FS.writeFile('/home/pyodide/' + fname, code);
+        }
+
+        status.textContent = 'Initializing goop troop...';
+
+        pyodide.runPython(`
+import sys
+sys.path.insert(0, '/home/pyodide')
+from web_game import WebGame
+game = WebGame()
+`);
+
+        const game = pyodide.globals.get('game');
+
+        document.getElementById('loading-screen').classList.add('hidden');
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.display = 'none';
+        }, 700);
+
+        term.focus();
+
+        const startResult = game.start().toJs();
+        let output = startResult[0];
+        let prompt = startResult[1];
+
+        writeOutput(output);
+        term.write('\r\n');
+        writeOutput(prompt);
+
+        while (true) {
+            const line = await getLine();
+            const result = game.process(line).toJs();
+            output = result[0];
+            prompt = result[1];
+
+            writeOutput(output);
+            term.write('\r\n');
+
+            if (prompt === null || prompt === undefined) {
+                writeOutput('\r\nGame over. Refresh to play again.');
+                break;
+            }
+
+            writeOutput(prompt);
+        }
+    })();
+    </script>
+</body>
+</html>
