@@ -3,9 +3,13 @@ pyproject.toml
 goopgoopdrooptroop/__init__.py
 goopgoopdrooptroop/__main__.py
 goopgoopdrooptroop/art.py
+goopgoopdrooptroop/frontend.py
+goopgoopdrooptroop/gacha.py
 goopgoopdrooptroop/game.py
 goopgoopdrooptroop/goop.py
 goopgoopdrooptroop/missions.py
+goopgoopdrooptroop/net.py
+goopgoopdrooptroop/server.py
 goopgoopdrooptroop.egg-info/PKG-INFO
 goopgoopdrooptroop.egg-info/SOURCES.txt
 goopgoopdrooptroop.egg-info/dependency_links.txt

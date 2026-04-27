@@ -96,7 +96,7 @@ def run_mission(troop: Troop, squad: list[Goop], mission: Mission) -> tuple[bool
         log.append(f"  +{mission.reputation_gain} Reputation!")
         for g in squad:
             if g.alive:
-                g.xp += mission.reward_xp
+                g.xp += int(mission.reward_xp * g.xp_multiplier)
                 g.missions_completed += 1
                 g.morale = min(100, g.morale + random.randint(5, 15))
                 levelup = g._check_levelup()

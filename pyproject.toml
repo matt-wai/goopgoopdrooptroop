@@ -4,14 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "goopgoopdrooptroop"
-version = "1.0.0"
-description = "Command your troop of goop soldiers in this terminal tamagotchi squad manager"
+version = "2.0.0"
+description = "Command your goop soldiers - now with gacha and multiplayer!"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "rich>=13.0",
+    "websockets>=12.0",
 ]
 
 [project.scripts]
 goopgoopdrooptroop = "goopgoopdrooptroop.__main__:main"
 ggdt = "goopgoopdrooptroop.__main__:main"
+ggdt-server = "goopgoopdrooptroop.server:main"
+ggdt-mp = "goopgoopdrooptroop.net:main"
+ggdt-frontend = "goopgoopdrooptroop.frontend:main"

@@ -1,3 +1,6 @@
 [console_scripts]
 ggdt = goopgoopdrooptroop.__main__:main
+ggdt-frontend = goopgoopdrooptroop.frontend:main
+ggdt-mp = goopgoopdrooptroop.net:main
+ggdt-server = goopgoopdrooptroop.server:main
 goopgoopdrooptroop = goopgoopdrooptroop.__main__:main

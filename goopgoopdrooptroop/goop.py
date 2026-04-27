@@ -7,9 +7,12 @@ import random
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from .art import random_goop_name
+
+if TYPE_CHECKING:
+    from .gacha import Relic, GachaState
 
 SAVE_DIR = Path.home() / ".goopgoopdrooptroop"
 SAVE_FILE = SAVE_DIR / "troop.json"
@@ -32,6 +35,7 @@ class Goop:
     missions_completed: int = 0
     kills: int = 0
     created_at: float = field(default_factory=time.time)
+    equipped_relic: Optional[dict] = None  # serialized Relic dict or None
 
     @property
     def mood(self) -> str:
@@ -48,12 +52,44 @@ class Goop:
         return "miserable"
 
     @property
+    def relic(self) -> Optional["Relic"]:
+        if self.equipped_relic is None:
+            return None
+        from .gacha import Relic as _Relic
+        return _Relic.from_dict(self.equipped_relic)
+
+    def equip(self, relic: "Relic") -> str:
+        old = self.relic
+        self.equipped_relic = relic.to_dict()
+        if old:
+            return f"{self.name} swapped [{old.name}] for [{relic.name}]!"
+        return f"{self.name} equipped [{relic.name}]!"
+
+    def unequip(self) -> str:
+        if not self.equipped_relic:
+            return f"{self.name} has nothing equipped."
+        name = self.equipped_relic["name"]
+        self.equipped_relic = None
+        return f"{self.name} unequipped [{name}]."
+
+    @property
     def power(self) -> int:
-        base = self.attack + self.defense + self.level * 3
-        goop_bonus = self.goopiness // 10
-        droop_penalty = self.droopiness // 20
-        morale_factor = max(0.5, self.morale / 100)
+        r = self.relic
+        atk = self.attack + (r.attack_bonus if r else 0)
+        def_ = self.defense + (r.defense_bonus if r else 0)
+        goop = self.goopiness + (r.goopiness_bonus if r else 0)
+        droop = self.droopiness + (r.droopiness_penalty if r else 0)
+        morale = min(100, self.morale + (r.morale_bonus if r else 0))
+        base = atk + def_ + self.level * 3
+        goop_bonus = goop // 10
+        droop_penalty = max(0, droop) // 20
+        morale_factor = max(0.5, morale / 100)
         return int((base + goop_bonus - droop_penalty) * morale_factor)
+
+    @property
+    def xp_multiplier(self) -> float:
+        r = self.relic
+        return r.xp_multiplier if r else 1.0
 
     def feed(self) -> str:
         if not self.alive:
@@ -77,7 +113,8 @@ class Goop:
         stat = random.choice(["attack", "defense", "goopiness"])
         gain = random.randint(1, 3 + self.level)
         setattr(self, stat, getattr(self, stat) + gain)
-        self.xp += random.randint(5, 15)
+        raw_xp = random.randint(5, 15)
+        self.xp += int(raw_xp * self.xp_multiplier)
         self._check_levelup()
         flavors = [
             f"{self.name} trains {stat}! +{gain}! The goop is strong with this one.",
@@ -132,7 +169,9 @@ class Goop:
 
     @classmethod
     def from_dict(cls, data: dict) -> Goop:
-        return cls(**data)
+        # forward-compat: ignore unknown keys
+        known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore[attr-defined]
+        return cls(**{k: v for k, v in data.items() if k in known})
 
 
 @dataclass
@@ -141,6 +180,7 @@ class Troop:
     goop_bucks: int = 100
     total_missions: int = 0
     reputation: int = 0
+    gacha: "GachaState | None" = field(default=None, repr=False)
 
     def recruit(self, name: str | None = None) -> Goop:
         name = name or random_goop_name()
@@ -170,14 +210,22 @@ class Troop:
         for g in self.alive_goops:
             g.tick()
 
+    def get_gacha(self) -> "GachaState":
+        if self.gacha is None:
+            from .gacha import GachaState
+            self.gacha = GachaState()
+        return self.gacha
+
     def save(self):
         SAVE_DIR.mkdir(parents=True, exist_ok=True)
-        data = {
+        data: dict = {
             "goop_bucks": self.goop_bucks,
             "total_missions": self.total_missions,
             "reputation": self.reputation,
             "goops": [g.to_dict() for g in self.goops],
         }
+        if self.gacha is not None:
+            data["gacha"] = self.gacha.to_dict()
         SAVE_FILE.write_text(json.dumps(data, indent=2))
 
     @classmethod
@@ -185,10 +233,12 @@ class Troop:
         if not SAVE_FILE.exists():
             return cls()
         data = json.loads(SAVE_FILE.read_text())
+        from .gacha import GachaState
         troop = cls(
             goop_bucks=data["goop_bucks"],
             total_missions=data["total_missions"],
             reputation=data["reputation"],
+            gacha=GachaState.from_dict(data["gacha"]) if "gacha" in data else GachaState(),
         )
         troop.goops = [Goop.from_dict(g) for g in data["goops"]]
         return troop

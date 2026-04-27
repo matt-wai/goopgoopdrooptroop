@@ -19,6 +19,63 @@
             overflow: hidden;
         }
 
+        /* ── Mode tabs ──────────────────────────────────────────────────── */
+        #mode-tabs {
+            display: flex;
+            gap: 0;
+            margin: 8px 0 0;
+        }
+        .tab-btn {
+            background: #111;
+            border: 1px solid #1a3a1a;
+            color: #555;
+            font-family: inherit;
+            font-size: 12px;
+            letter-spacing: 2px;
+            padding: 6px 22px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tab-btn:first-child { border-radius: 4px 0 0 4px; }
+        .tab-btn:last-child  { border-radius: 0 4px 4px 0; }
+        .tab-btn.active { background: #0d2a0d; color: #4ade80; border-color: #4ade80; }
+        .tab-btn:hover:not(.active) { color: #888; border-color: #2a4a2a; }
+
+        /* ── Multiplayer connect bar ────────────────────────────────────── */
+        #mp-bar {
+            display: none;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 0 2px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #mp-bar.visible { display: flex; }
+        #mp-bar label { font-size: 11px; color: #555; }
+        #mp-bar input {
+            background: #0d1117;
+            border: 1px solid #1a3a1a;
+            color: #c9d1d9;
+            font-family: inherit;
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            width: 130px;
+        }
+        #mp-bar input:focus { outline: none; border-color: #4ade80; }
+        #mp-connect-btn {
+            background: #0d2a0d;
+            border: 1px solid #4ade80;
+            color: #4ade80;
+            font-family: inherit;
+            font-size: 12px;
+            padding: 3px 14px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #mp-connect-btn:hover { background: #133a13; }
+        #mp-status { font-size: 11px; color: #555; }
+
         #loading-screen {
             position: fixed;
             inset: 0;
@@ -155,6 +212,25 @@
         <div class="header">
             <h1>GoopGoopDroopTroop</h1>
         </div>
+
+        <!-- Mode selector -->
+        <div id="mode-tabs">
+            <button class="tab-btn active" id="tab-solo" onclick="setMode('solo')">SOLO</button>
+            <button class="tab-btn" id="tab-mp" onclick="setMode('mp')">MULTIPLAYER</button>
+        </div>
+
+        <!-- Multiplayer connect bar -->
+        <div id="mp-bar">
+            <label>Host</label>
+            <input id="mp-host" value="localhost" placeholder="host" />
+            <label>Port</label>
+            <input id="mp-port" value="19500" placeholder="19500" style="width:70px;" />
+            <label>Name</label>
+            <input id="mp-name" value="GoopCommander" placeholder="your name" />
+            <button id="mp-connect-btn" onclick="mpConnect()">CONNECT</button>
+            <span id="mp-status"></span>
+        </div>
+
         <div id="terminal-container"></div>
         <div class="footer">
             Powered by <a href="https://pyodide.org" target="_blank">Pyodide</a> +
@@ -169,125 +245,104 @@
     <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
     <script>
-    (async function() {
-        const term = new Terminal({
-            theme: {
-                background: '#0d1117',
-                foreground: '#c9d1d9',
-                cursor: '#4ade80',
-                cursorAccent: '#0d1117',
-                selectionBackground: 'rgba(74, 222, 128, 0.3)',
-                black: '#0d1117',
-                red: '#f85149',
-                green: '#4ade80',
-                yellow: '#e3b341',
-                blue: '#58a6ff',
-                magenta: '#bc8cff',
-                cyan: '#39d2c0',
-                white: '#c9d1d9',
-                brightBlack: '#484f58',
-                brightRed: '#ff7b72',
-                brightGreen: '#56d364',
-                brightYellow: '#e3b341',
-                brightBlue: '#79c0ff',
-                brightMagenta: '#d2a8ff',
-                brightCyan: '#56d4dd',
-                brightWhite: '#f0f6fc',
-            },
-            fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", "Menlo", monospace',
-            fontSize: 14,
-            lineHeight: 1.2,
-            cursorBlink: true,
-            cursorStyle: 'block',
-            allowTransparency: true,
-            scrollback: 5000,
-        });
+    // ── Terminal setup ────────────────────────────────────────────────────────
+    const TERM_THEME = {
+        background: '#0d1117', foreground: '#c9d1d9', cursor: '#4ade80',
+        cursorAccent: '#0d1117', selectionBackground: 'rgba(74,222,128,0.3)',
+        black: '#0d1117', red: '#f85149', green: '#4ade80', yellow: '#e3b341',
+        blue: '#58a6ff', magenta: '#bc8cff', cyan: '#39d2c0', white: '#c9d1d9',
+        brightBlack: '#484f58', brightRed: '#ff7b72', brightGreen: '#56d364',
+        brightYellow: '#e3b341', brightBlue: '#79c0ff', brightMagenta: '#d2a8ff',
+        brightCyan: '#56d4dd', brightWhite: '#f0f6fc',
+    };
 
-        const fitAddon = new FitAddon.FitAddon();
-        term.loadAddon(fitAddon);
-        term.loadAddon(new WebLinksAddon.WebLinksAddon());
+    const term = new Terminal({
+        theme: TERM_THEME,
+        fontFamily: '"Fira Code","Cascadia Code","JetBrains Mono","Menlo",monospace',
+        fontSize: 14, lineHeight: 1.2, cursorBlink: true, cursorStyle: 'block',
+        allowTransparency: true, scrollback: 8000,
+    });
 
-        const container = document.getElementById('terminal-container');
-        term.open(container);
-        fitAddon.fit();
-        window.addEventListener('resize', () => fitAddon.fit());
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.loadAddon(new WebLinksAddon.WebLinksAddon());
 
-        new ResizeObserver(() => fitAddon.fit()).observe(container);
+    const container = document.getElementById('terminal-container');
+    term.open(container);
+    fitAddon.fit();
+    window.addEventListener('resize', () => fitAddon.fit());
+    new ResizeObserver(() => fitAddon.fit()).observe(container);
 
-        function writeOutput(text) {
-            const lines = text.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-                term.write(lines[i]);
-                if (i < lines.length - 1) term.write('\r\n');
+    function writeLn(text) {
+        const lines = text.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            term.write(lines[i]);
+            if (i < lines.length - 1) term.write('\r\n');
+        }
+    }
+
+    // ── Input machinery (shared) ──────────────────────────────────────────────
+    let inputBuffer = '', inputResolve = null, inputActive = false;
+    let inputHandler = null; // set by the active mode
+
+    function getLine() {
+        inputActive = true;
+        inputBuffer = '';
+        return new Promise(resolve => { inputResolve = resolve; });
+    }
+
+    term.onData(data => {
+        // If multiplayer has taken over, forward raw to mp handler
+        if (inputHandler) { inputHandler(data); return; }
+        if (!inputActive) return;
+        for (const ch of data) {
+            if (ch === '\r' || ch === '\n') {
+                term.write('\r\n');
+                inputActive = false;
+                const line = inputBuffer;
+                inputBuffer = '';
+                if (inputResolve) { const r = inputResolve; inputResolve = null; r(line); }
+            } else if (ch === '\x7f' || ch === '\b') {
+                if (inputBuffer.length > 0) { inputBuffer = inputBuffer.slice(0, -1); term.write('\b \b'); }
+            } else if (ch === '\x03' || ch === '\x15') {
+                while (inputBuffer.length > 0) { inputBuffer = inputBuffer.slice(0, -1); term.write('\b \b'); }
+            } else if (ch >= ' ') {
+                inputBuffer += ch; term.write(ch);
             }
         }
+    });
 
-        let inputBuffer = '';
-        let inputResolve = null;
-        let inputActive = false;
+    // ── Mode management ───────────────────────────────────────────────────────
+    let currentMode = 'solo';
+    let pyodideReady = false;
+    let mpSocket = null;
 
-        function getLine() {
-            inputActive = true;
-            inputBuffer = '';
-            return new Promise(resolve => { inputResolve = resolve; });
+    function setMode(mode) {
+        currentMode = mode;
+        document.getElementById('tab-solo').classList.toggle('active', mode === 'solo');
+        document.getElementById('tab-mp').classList.toggle('active', mode === 'mp');
+        document.getElementById('mp-bar').classList.toggle('visible', mode === 'mp');
+        if (mode === 'solo') {
+            // disconnect mp if connected
+            if (mpSocket) { mpSocket.close(); mpSocket = null; inputHandler = null; }
+            if (pyodideReady) {
+                term.clear();
+                startSolo();
+            }
         }
+    }
 
-        term.onData(data => {
-            if (!inputActive) return;
+    // ── SOLO mode (Pyodide) ───────────────────────────────────────────────────
+    let pyGame = null;
 
-            for (const ch of data) {
-                if (ch === '\r' || ch === '\n') {
-                    term.write('\r\n');
-                    inputActive = false;
-                    const line = inputBuffer;
-                    inputBuffer = '';
-                    if (inputResolve) {
-                        const r = inputResolve;
-                        inputResolve = null;
-                        r(line);
-                    }
-                } else if (ch === '\x7f' || ch === '\b') {
-                    if (inputBuffer.length > 0) {
-                        inputBuffer = inputBuffer.slice(0, -1);
-                        term.write('\b \b');
-                    }
-                } else if (ch === '\x03') {
-                    // Ctrl+C: clear input
-                    while (inputBuffer.length > 0) {
-                        inputBuffer = inputBuffer.slice(0, -1);
-                        term.write('\b \b');
-                    }
-                } else if (ch === '\x15') {
-                    // Ctrl+U: clear line
-                    while (inputBuffer.length > 0) {
-                        inputBuffer = inputBuffer.slice(0, -1);
-                        term.write('\b \b');
-                    }
-                } else if (ch >= ' ') {
-                    inputBuffer += ch;
-                    term.write(ch);
-                }
-            }
-        });
-
-        // Paste support
-        term.onData(data => {
-            if (!inputActive) return;
-            if (data.length > 1 && !data.includes('\x1b')) {
-                // Multi-char paste that isn't an escape sequence is already handled char-by-char above
-            }
-        });
-
+    async function initPyodide() {
         const status = document.getElementById('loading-status');
-
         status.textContent = 'Downloading Pyodide runtime (~10MB)';
         const pyodide = await loadPyodide();
 
         status.textContent = 'Loading game files...';
-
         const pyFiles = ['art.py', 'goop.py', 'missions.py', 'web_game.py'];
         const baseUrl = window.location.href.replace(/\/[^/]*$/, '/');
-
         for (const fname of pyFiles) {
             const resp = await fetch(baseUrl + fname);
             const code = await resp.text();
@@ -295,48 +350,276 @@
         }
 
         status.textContent = 'Initializing goop troop...';
-
         pyodide.runPython(`
 import sys
 sys.path.insert(0, '/home/pyodide')
 from web_game import WebGame
 game = WebGame()
 `);
-
-        const game = pyodide.globals.get('game');
+        pyGame = pyodide.globals.get('game');
+        pyodideReady = true;
 
         document.getElementById('loading-screen').classList.add('hidden');
-        setTimeout(() => {
-            document.getElementById('loading-screen').style.display = 'none';
-        }, 700);
-
+        setTimeout(() => { document.getElementById('loading-screen').style.display = 'none'; }, 700);
         term.focus();
+        startSolo();
+    }
 
-        const startResult = game.start().toJs();
-        let output = startResult[0];
-        let prompt = startResult[1];
-
-        writeOutput(output);
-        term.write('\r\n');
-        writeOutput(prompt);
-
+    async function startSolo() {
+        inputHandler = null;
+        const startResult = pyGame.start().toJs();
+        let output = startResult[0], prompt = startResult[1];
+        writeLn(output); term.write('\r\n'); writeLn(prompt);
         while (true) {
             const line = await getLine();
-            const result = game.process(line).toJs();
-            output = result[0];
-            prompt = result[1];
-
-            writeOutput(output);
-            term.write('\r\n');
-
-            if (prompt === null || prompt === undefined) {
-                writeOutput('\r\nGame over. Refresh to play again.');
-                break;
-            }
-
-            writeOutput(prompt);
+            const result = pyGame.process(line).toJs();
+            output = result[0]; prompt = result[1];
+            writeLn(output); term.write('\r\n');
+            if (prompt === null || prompt === undefined) { writeLn('\r\nGame over. Refresh to play again.'); break; }
+            writeLn(prompt);
         }
-    })();
+    }
+
+    // ── MULTIPLAYER mode (WebSocket) ──────────────────────────────────────────
+
+    // Persistent player id stored in localStorage
+    function getPlayerId() {
+        let id = localStorage.getItem('ggdt_player_id');
+        if (!id) { id = crypto.randomUUID(); localStorage.setItem('ggdt_player_id', id); }
+        return id;
+    }
+
+    // ANSI color helpers for rendering server messages in the terminal
+    const RARITY_ANSI = { common: '\x1b[37m', rare: '\x1b[34m', epic: '\x1b[35m', legendary: '\x1b[33;1m' };
+    const STYLE_ANSI = {
+        'bold green': '\x1b[32;1m', 'green': '\x1b[32m', 'red': '\x1b[31m',
+        'bold red': '\x1b[31;1m', 'yellow': '\x1b[33m', 'bold yellow': '\x1b[33;1m',
+        'cyan': '\x1b[36m', 'bold cyan': '\x1b[36;1m', 'magenta': '\x1b[35m',
+        'bold magenta': '\x1b[35;1m', 'blue': '\x1b[34m', 'dim': '\x1b[2m',
+        'dim italic': '\x1b[2;3m', 'bold': '\x1b[1m', 'white': '\x1b[37m',
+    };
+    const RST = '\x1b[0m';
+
+    function ansiStyle(text, style) {
+        const code = STYLE_ANSI[style] || '';
+        return code ? `${code}${text}${RST}` : text;
+    }
+
+    function renderState(state) {
+        const t = state.troop || {};
+        const goops = t.goops || [];
+        const online = state.online || [];
+
+        term.write('\r\n\x1b[32;1m── Your Troop ──────────────────────────────────────\x1b[0m\r\n');
+
+        if (goops.length === 0) {
+            term.write('  No goops yet.\r\n');
+        } else {
+            const hdr = '  # Name             Lv  HP          ATK DEF Goop Droop Relic           Pwr';
+            term.write('\x1b[2m' + hdr + RST + '\r\n');
+            goops.forEach((g, i) => {
+                const rel = g.equipped_relic;
+                const relName = rel ? rel.name.substring(0, 14) : '-';
+                const hp = g.hp, mhp = g.max_hp;
+                const hpCol = hp > mhp * 0.5 ? '\x1b[32m' : hp > mhp * 0.25 ? '\x1b[33m' : '\x1b[31m';
+                const alive = g.alive !== false;
+                const nameStr = alive ? g.name : `\x1b[9m${g.name}\x1b[0m`;
+                const pwrStr = alive ? String(g.power || 0) : '---';
+                const row = [
+                    String(i + 1).padStart(3),
+                    ` ${nameStr}`.padEnd(17),
+                    String(g.level || 1).padStart(3),
+                    `  ${hpCol}${String(hp).padStart(3)}/${String(mhp).padEnd(3)}${RST}`,
+                    String(g.attack || 0).padStart(4),
+                    String(g.defense || 0).padStart(4),
+                    String(g.goopiness || 0).padStart(5),
+                    String(g.droopiness || 0).padStart(6),
+                    ` ${relName.padEnd(15)}`,
+                    pwrStr.padStart(4),
+                ].join('');
+                term.write(row + '\r\n');
+            });
+        }
+
+        term.write(
+            `\r\n  \x1b[33;1mGoopBucks:\x1b[0m ${t.goop_bucks || 0}  ` +
+            `\x1b[35mRep:\x1b[0m ${t.reputation || 0}  ` +
+            `\x1b[36mMissions:\x1b[0m ${t.total_missions || 0}  ` +
+            `\x1b[32mPower:\x1b[0m ${t.troop_power || 0}\r\n` +
+            `  \x1b[2mBanner: ${t.banner || '?'}  ${t.gacha_pity || ''}  Relics: ${(t.gacha_inventory || []).length}\x1b[0m\r\n`
+        );
+
+        if (online.length > 0) {
+            term.write('\r\n\x1b[34;1m── Online Players ──────────────────────────────────\x1b[0m\r\n');
+            online.forEach(p => {
+                term.write(`  \x1b[36m${p.name.padEnd(20)}\x1b[0m  Goops: ${p.goops}  Power: ${p.power}  Rep: ${p.reputation}\r\n`);
+            });
+        }
+        term.write('\r\n');
+        showMpMenu();
+    }
+
+    function showMpMenu() {
+        term.write(
+            '\x1b[32;1m─── Command ─────────────────────────────────────────\x1b[0m\r\n' +
+            '\x1b[36mm\x1b[0m Mission  \x1b[36mr\x1b[0m Recruit  \x1b[36mF\x1b[0m Feed-all  \x1b[36mT\x1b[0m Train-all  \x1b[36mR\x1b[0m Rest-all\r\n' +
+            `\x1b[35m1\x1b[0m Pull(160)  \x1b[35mx\x1b[0m 10Pull(1440)  \x1b[35mb\x1b[0m Banner  \x1b[35mi\x1b[0m Inventory  \x1b[35me\x1b[0m Equip\r\n` +
+            '\x1b[31mc <name>\x1b[0m Challenge  \x1b[2ms\x1b[0m Refresh  \x1b[2mq\x1b[0m Disconnect\r\n' +
+            '\x1b[32;1m>\x1b[0m '
+        );
+    }
+
+    // Input buffer for multiplayer mode
+    let mpBuf = '';
+    let mpPendingTag = null;
+
+    function mpInputHandler(data) {
+        for (const ch of data) {
+            if (ch === '\r' || ch === '\n') {
+                const line = mpBuf;
+                mpBuf = '';
+                term.write('\r\n');
+                handleMpInput(line.trim());
+            } else if (ch === '\x7f' || ch === '\b') {
+                if (mpBuf.length > 0) { mpBuf = mpBuf.slice(0, -1); term.write('\b \b'); }
+            } else if (ch === '\x03' || ch === '\x15') {
+                while (mpBuf.length > 0) { mpBuf = mpBuf.slice(0, -1); term.write('\b \b'); }
+            } else if (ch >= ' ') {
+                mpBuf += ch; term.write(ch);
+            }
+        }
+    }
+
+    function handleMpInput(line) {
+        if (!mpSocket || mpSocket.readyState !== WebSocket.OPEN) {
+            term.write('\x1b[31mNot connected.\x1b[0m\r\n'); return;
+        }
+
+        // pending prompt (banner select, equip)
+        if (mpPendingTag) {
+            mpSocket.send(JSON.stringify({ type: 'input', value: line, tag: mpPendingTag }));
+            mpPendingTag = null;
+            return;
+        }
+
+        const ACTION_MAP = {
+            'm': 'mission', 'r': 'recruit',
+            'F': 'feed_all', 'T': 'train_all', 'R': 'rest_all',
+            '1': 'gacha_single', 'x': 'gacha_ten',
+            'b': 'gacha_switch_banner', 'i': 'gacha_inventory', 'e': 'gacha_equip',
+            's': 'tick', 't': 'tick',
+        };
+
+        const lower = line.toLowerCase();
+        if (lower === 'q' || lower === 'quit') {
+            mpSocket.close(); mpSocket = null; inputHandler = null;
+            term.write('\x1b[32mDisconnected. Switching to solo mode.\x1b[0m\r\n');
+            setMode('solo'); return;
+        }
+
+        if (ACTION_MAP[line]) {
+            mpSocket.send(JSON.stringify({ type: 'action', action: ACTION_MAP[line] })); return;
+        }
+
+        if (lower.startsWith('c ')) {
+            mpSocket.send(JSON.stringify({ type: 'challenge', target: line.slice(2).trim() })); return;
+        }
+        if (lower.startsWith('accept ')) {
+            mpSocket.send(JSON.stringify({ type: 'challenge', target: line.slice(7).trim(), accept: true })); return;
+        }
+        if (lower.startsWith('decline ')) {
+            mpSocket.send(JSON.stringify({ type: 'challenge', target: line.slice(8).trim(), accept: false })); return;
+        }
+
+        term.write('\x1b[31mUnknown command.\x1b[0m\r\n');
+        showMpMenu();
+    }
+
+    function mpConnect() {
+        const host = document.getElementById('mp-host').value.trim() || 'localhost';
+        const port = document.getElementById('mp-port').value.trim() || '19500';
+        const name = document.getElementById('mp-name').value.trim() || 'GoopCommander';
+        const url = `ws://${host}:${port}`;
+        const statusEl = document.getElementById('mp-status');
+
+        if (mpSocket) { mpSocket.close(); mpSocket = null; }
+
+        statusEl.textContent = 'Connecting...';
+        statusEl.style.color = '#555';
+
+        const ws = new WebSocket(url);
+        mpSocket = ws;
+
+        ws.onopen = () => {
+            statusEl.textContent = `Connected to ${host}:${port}`;
+            statusEl.style.color = '#4ade80';
+            term.clear();
+            term.write(`\x1b[32;1mConnected to GoopGoopDroopTroop server at ${url}\x1b[0m\r\n`);
+            inputHandler = mpInputHandler;
+            mpBuf = '';
+            ws.send(JSON.stringify({
+                type: 'join',
+                player_name: name,
+                player_id: getPlayerId(),
+            }));
+        };
+
+        ws.onmessage = (ev) => {
+            const msg = JSON.parse(ev.data);
+            switch (msg.type) {
+                case 'welcome':
+                    term.write(`\x1b[32;1mWelcome, ${msg.player_name}!\x1b[0m\r\n`);
+                    break;
+                case 'state':
+                    renderState(msg);
+                    break;
+                case 'message': {
+                    const styled = ansiStyle(msg.text, msg.style || '');
+                    writeLn(styled);
+                    term.write('\r\n');
+                    showMpMenu();
+                    break;
+                }
+                case 'error':
+                    term.write(`\x1b[31mError: ${msg.text}\x1b[0m\r\n`);
+                    showMpMenu();
+                    break;
+                case 'battle': {
+                    const color = msg.won ? '\x1b[32;1m' : '\x1b[31;1m';
+                    const title = msg.won ? '★ VICTORY ★' : '✗ DEFEAT ✗';
+                    term.write(`\r\n${color}═══ ${title} ${'═'.repeat(42)}\x1b[0m\r\n`);
+                    msg.log.forEach(l => { writeLn(l); term.write('\r\n'); });
+                    term.write(`${color}${'═'.repeat(60)}\x1b[0m\r\n`);
+                    break;
+                }
+                case 'prompt':
+                    mpPendingTag = msg.tag;
+                    term.write(`\r\n\x1b[33;1m${msg.text}\x1b[0m\r\n\x1b[32;1m> \x1b[0m`);
+                    break;
+                case 'challenge_incoming':
+                    term.write(`\r\n\x1b[31;1m⚔  CHALLENGE from ${msg.from}!\x1b[0m  Type: accept ${msg.from}  or  decline ${msg.from}\r\n`);
+                    showMpMenu();
+                    break;
+                case 'pong':
+                    break;
+            }
+        };
+
+        ws.onerror = () => {
+            statusEl.textContent = 'Connection error';
+            statusEl.style.color = '#f85149';
+        };
+
+        ws.onclose = () => {
+            if (mpSocket === ws) { mpSocket = null; inputHandler = null; }
+            statusEl.textContent = 'Disconnected';
+            statusEl.style.color = '#555';
+            term.write('\r\n\x1b[31mDisconnected from server.\x1b[0m\r\n');
+        };
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    initPyodide();
     </script>
 </body>
 </html>

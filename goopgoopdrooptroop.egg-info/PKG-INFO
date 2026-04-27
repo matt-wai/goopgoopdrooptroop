@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: goopgoopdrooptroop
-Version: 1.0.0
-Summary: Command your troop of goop soldiers in this terminal tamagotchi squad manager
+Version: 2.0.0
+Summary: Command your goop soldiers - now with gacha and multiplayer!
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.0
+Requires-Dist: websockets>=12.0
 
 # 🫠 GoopGoopDroopTroop
 
@@ -42,11 +43,7 @@ uv pip install .
 ## Run
 
 ```bash
-goopgoopdrooptroop
-# or the shorter alias
-ggdt
-# or
-python -m goopgoopdrooptroop
+uv run ggdt
 ```
 
 ## Stats
